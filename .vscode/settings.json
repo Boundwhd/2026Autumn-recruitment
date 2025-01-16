@@ -3,6 +3,8 @@
         "stack": "cpp",
         "iostream": "cpp",
         "ostream": "cpp",
-        "vector": "cpp"
+        "vector": "cpp",
+        "functional": "cpp",
+        "chrono": "cpp"
     }
 }
