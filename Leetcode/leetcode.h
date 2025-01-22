@@ -7,6 +7,8 @@
 #include <queue>
 #include <math.h>
 #include <algorithm>
+#include <stdlib.h>
+#include <memory.h>
 
 
 
