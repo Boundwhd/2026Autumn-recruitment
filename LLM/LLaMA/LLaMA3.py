@@ -4,6 +4,7 @@ import torch.nn as nn
 import math
 from torch.nn import functional as F
 import inspect
+from transformers import LlamaForCausalLM, AutoTokenizer
 # -----------------------------------------------------------------------------------------------
 class LlamaSdpaAttention(nn.Module):
     def __init__(self, config):
@@ -21,10 +22,17 @@ class LlamaMLP(nn.Module):
 
 
 class LlamaRotaryEmbedding(nn.Module):
-    pass 
+    def __init__(self):
+        super().__init__()
+    
+    def forward(self, hidden_state):
+        batch_size, sequence_length, embedding_size = hidden_state.shape
+
+
 
 
 class LlamaRMSNorm(nn.Module):
+
     def __init__(self, embedding_dim, eps=1e-6):
         super().__init__()
         self.eps = eps
@@ -47,7 +55,7 @@ class LlamaRMSNorm(nn.Module):
 class LlamaDecoderLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.self_attn = LlamaSdpaAttention()
+        self.self_attn = LlamaSdpaAttention(config)
         self.mlp = LlamaMLP()
         self.input_layernorm = LlamaRMSNorm(config.embedding_dim)
         self.post_attention_layernorm = LlamaRMSNorm(config.embedding_dim)
@@ -68,12 +76,12 @@ class LlamaDecoderLayer(nn.Module):
 #------------------------------------------------------------------------------------------------
 @dataclass
 class LLaMA3Config:
-    vocab_size: int = 32000
-    embedding_dim: int = 2048
-    layer_num: int = 16 
-    head_dim: int = 256
-    att_heads: int = 8
-    kv_heads: int = 2
+    vocab_size: int = 200
+    embedding_dim: int = 32
+    layer_num: int = 1 
+    head_dim: int = 8
+    att_heads: int = 4
+    kv_heads: int = 1
 
 
 
