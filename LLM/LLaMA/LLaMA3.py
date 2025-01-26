@@ -12,9 +12,11 @@ class LlamaSdpaAttention(nn.Module):
         self.q_proj = nn.Linear(config.embedding_dim, config.att_heads * config.head_dim, bias=False)
         self.k_proj = nn.Linear(config.embedding_dim, config.kv_heads * config.head_dim, bias=False)
         self.v_proj = nn.Linear(config.embedding_dim, config.kv_heads * config.head_dim, bias=False)
-        self.o_proj = nn.Linear(config.embedding_dim, config.kv_heads * config.head_dim, bias=False)
-        self.rotary_emb = LlamaRotaryEmbedding()
-    pass
+        self.o_proj = nn.Linear(config.att_heads * config.head_dim, config.embedding_dim, bias=False)
+    
+    def forward(self, x, position_embeddings):
+        pass
+    
 
 
 class LlamaMLP(nn.Module):
@@ -22,17 +24,27 @@ class LlamaMLP(nn.Module):
 
 
 class LlamaRotaryEmbedding(nn.Module):
-    def __init__(self):
+    def __init__(self, head_dim, base):
         super().__init__()
+        self.head_dim = head_dim
+        self.base = base
     
     def forward(self, hidden_state):
-        batch_size, sequence_length, embedding_size = hidden_state.shape
+        _, sequence_length, _ = hidden_state.shape
+        position = torch.arange(0, sequence_length, dtype=torch.float32).unsqueeze(-1)
+        ids = torch.arange(0, self.head_dim // 2, dtype=torch.float)
+        theta = torch.pow(self.base, -2 * ids / self.head_dim)
 
+        embeddings = position * theta
+        sin_embeddings = torch.sin(embeddings)
+        cos_embeddings = torch.cos(embeddings)
 
+        sin_embeddings = sin_embeddings.repeat(1, 2)
+        cos_embeddings = cos_embeddings.repeat(1, 2)
 
+        return cos_embeddings, sin_embeddings
 
 class LlamaRMSNorm(nn.Module):
-
     def __init__(self, embedding_dim, eps=1e-6):
         super().__init__()
         self.eps = eps
@@ -60,10 +72,10 @@ class LlamaDecoderLayer(nn.Module):
         self.input_layernorm = LlamaRMSNorm(config.embedding_dim)
         self.post_attention_layernorm = LlamaRMSNorm(config.embedding_dim)
 
-    def forward(self, x):
+    def forward(self, x, position_embeddings):
         residual = x
         x = self.input_layernorm(x)
-        x = self.self_attn(x)
+        x = self.self_attn(x, position_embeddings)
         x = residual + x
         
         residual = x
@@ -76,12 +88,13 @@ class LlamaDecoderLayer(nn.Module):
 #------------------------------------------------------------------------------------------------
 @dataclass
 class LLaMA3Config:
-    vocab_size: int = 200
-    embedding_dim: int = 32
-    layer_num: int = 1 
-    head_dim: int = 8
-    att_heads: int = 4
-    kv_heads: int = 1
+    vocab_size: int = 32000
+    embedding_dim: int = 2048
+    layer_num: int = 6 
+    head_dim: int = 256
+    att_heads: int = 8
+    kv_heads: int = 2
+    base: int = 10000
 
 
 
@@ -90,9 +103,13 @@ class LLaMA3(nn.Module):
         super().__init__()
         self.embed_tokens = nn.Embedding(config.vocab_size, config.embedding_dim)
         self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.layer_num)])
-        self.LlamaRotaryEmbedding = LlamaRotaryEmbedding()
+        self.LlamaRotaryEmbedding = LlamaRotaryEmbedding(config.head_dim, config.base)
         self.norm = LlamaRMSNorm(config.embedding_dim)
-    pass
+    
+    def forward(self, x):
+        embeddings = self.embed_tokens(x)
+        position_embeddings = self.LlamaRotaryEmbedding(x)
+        x = self.layers(embeddings, position_embeddings)
 
 
 #------------------------------------------------------------------------------------------------
