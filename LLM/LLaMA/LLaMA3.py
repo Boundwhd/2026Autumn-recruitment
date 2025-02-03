@@ -28,14 +28,17 @@ class LlamaRotaryEmbedding(nn.Module):
         super().__init__()
         self.head_dim = head_dim
         self.base = base
-    
-    def forward(self, hidden_state):
-        _, sequence_length, _ = hidden_state.shape
-        position = torch.arange(0, sequence_length, dtype=torch.float32).unsqueeze(-1)
+        
         ids = torch.arange(0, self.head_dim // 2, dtype=torch.float)
         theta = torch.pow(self.base, -2 * ids / self.head_dim)
 
-        embeddings = position * theta
+        self.register_buffer('theta', theta, persistent=False)
+
+    def forward(self, hidden_state):
+        _, sequence_length, _ = hidden_state.shape
+        position = torch.arange(0, sequence_length, dtype=torch.float32).unsqueeze(-1)
+
+        embeddings = position * self.theta
         sin_embeddings = torch.sin(embeddings)
         cos_embeddings = torch.cos(embeddings)
 
@@ -114,7 +117,10 @@ class LLaMA3(nn.Module):
 
 #------------------------------------------------------------------------------------------------
 
-
-config = LLaMA3Config()
-model = LLaMA3(config)
-print(model)
+Rope_layer = LlamaRotaryEmbedding(8, 10000)
+torch.manual_seed(42)
+hidden_state = torch.randint(0, 10, (1, 4, 8))
+cos, sin = Rope_layer(hidden_state)
+print("1, 4, 8:")
+print(cos)
+print(sin)
