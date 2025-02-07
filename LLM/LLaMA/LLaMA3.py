@@ -5,6 +5,7 @@ import math
 from torch.nn import functional as F
 import inspect
 from transformers import LlamaForCausalLM, AutoTokenizer
+
 # -----------------------------------------------------------------------------------------------
 def rotate_half(x):
     x1 = x[..., : x.shape[-1] // 2]
@@ -107,13 +108,6 @@ class LlamaRMSNorm(nn.Module):
         self.gamma = nn.Parameter(torch.ones(embedding_dim)) # learning parametre γ
     
     def forward(self, hidden_states):
-        '''
-        input: (batch, sequence_length, embedding_size)
-        algorithm:
-            RMS(x) = sqrt(mean(x_i^2) + epsilon)
-            norm_x = (x / RMS(x)) * gamma
-        output: (batch, sequence_length, embedding_size)
-        '''
         RMS = torch.sqrt(torch.mean(hidden_states**2, dim=-1, keepdim=True) + self.eps)
         out = hidden_states / RMS * self.gamma
         return out
@@ -148,7 +142,7 @@ class LLaMA3Config:
     layer_num: int = 16 
     head_dim: int = 256
     att_heads: int = 8
-    kv_heads: int = 2
+    kv_heads: int = 8
     base: int = 10000
     intermediate_size: int = 8192
 
@@ -176,6 +170,7 @@ class LLaMA3(nn.Module):
 
 config = LLaMA3Config()
 model = LLaMA3(config)
+print(model)
 inputs = torch.randint(0, 500, (2, 32))
 out = model(inputs)
 print(out.shape)
