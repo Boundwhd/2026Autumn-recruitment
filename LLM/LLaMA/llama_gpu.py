@@ -1,12 +1,32 @@
-from dataclasses import dataclass
+#---------------------------------------------------------------------------------------------------------------------
+# Config
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import math
-from torch.nn import functional as F
-import inspect
-from transformers import LlamaForCausalLM, AutoTokenizer
+from dataclasses import dataclass
 
-# -----------------------------------------------------------------------------------------------
+'''
+Llama config
+'''
+@dataclass
+class LLaMA3Config:
+    vocab_size: int = 32000         
+    embedding_dim: int = 2048
+    layer_num: int = 3
+    head_dim: int = 256
+    att_heads: int = 8
+    kv_heads: int = 2
+    base: int = 10000
+    intermediate_size: int = 8192
+#---------------------------------------------------------------------------------------------------------------------
+# Model
+'''
+Attention:
+1. RoPE Apply.
+2. Grouped-Query Attention.
+3. Flash attention.
+'''
 def rotate_half(x):
     x1 = x[..., : x.shape[-1] // 2]
     x2 = x[..., x.shape[-1] // 2 :]
@@ -22,7 +42,14 @@ def apply_Rope(q, k, cos, sin):
 
     return q_embd, k_embd
 
-class LlamaSdpaAttention(nn.Module):
+def repeat_kv(hidden_states, num_rep):
+    batch, kv_heads, sequence_length, head_dim = hidden_states.shape
+    if num_rep == 1:
+        return hidden_states
+    hidden_states = hidden_states[:, :, None, :, :].expand(batch, kv_heads, num_rep, sequence_length, head_dim)
+    return hidden_states.reshape(batch, kv_heads * num_rep, sequence_length, head_dim)
+
+class LlamaAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.head_dim = config.head_dim
@@ -43,22 +70,73 @@ class LlamaSdpaAttention(nn.Module):
         cos, sin = position_embeddings
         query_states, key_states = apply_Rope(query_states, key_states, cos, sin)
 
-        key_states = key_states.repeat_interleave(self.num_key_value_groups, dim=1)
-        value_states = value_states.repeat_interleave(self.num_key_value_groups, dim=1)
-
+        key_states = repeat_kv(key_states, self.num_key_value_groups)
+        value_states = repeat_kv(value_states, self.num_key_value_groups)
+        
         attn_output = torch.nn.functional.scaled_dot_product_attention(
             query_states,  
             key_states,    
             value_states,  
             is_causal=True  
         )
-        
+
         attn_output = attn_output.transpose(1, 2).contiguous()  
         attn_output = attn_output.view(*input_shape, -1) 
         attn_output = self.o_proj(attn_output)
 
         return attn_output
+    
+'''
+RoPE:
+1. Precompute theta and store it in the buffer, reduce the computational load.
+'''
+class LlamaRotaryEmbedding(nn.Module):
+    def __init__(self, head_dim, base):
+        super().__init__()
+        self.head_dim = head_dim
+        self.base = base
+        
+        ids = torch.arange(0, self.head_dim // 2, dtype=torch.float)
+        theta = torch.pow(self.base, -2 * ids / self.head_dim)
 
+        self.register_buffer('theta', theta, persistent=False)
+
+    def forward(self, x):
+        device = x.device
+        batch_size, sequence_length, _ = x.shape
+        position = torch.arange(0, sequence_length, dtype=torch.float32).unsqueeze(-1).to(device)
+
+        embeddings = position * self.theta
+        cos_embeddings = torch.cos(embeddings)
+        sin_embeddings = torch.sin(embeddings)
+        
+        cos_embeddings = cos_embeddings.repeat(1, 2).unsqueeze(0)
+        sin_embeddings = sin_embeddings.repeat(1, 2).unsqueeze(0)
+        
+        cos_embeddings = cos_embeddings.repeat(batch_size, 1, 1)
+        sin_embeddings = sin_embeddings.repeat(batch_size, 1, 1)
+        
+        return cos_embeddings, sin_embeddings
+    
+'''
+RMSNorm:
+'''
+class LlamaRMSNorm(nn.Module):
+    def __init__(self, embedding_dim, eps=1e-6):
+        super().__init__()
+        self.eps = eps
+        self.gamma = nn.Parameter(torch.ones(embedding_dim)) # learning parametre γ
+    
+    def forward(self, hidden_states):
+        RMS = torch.sqrt(torch.mean(hidden_states**2, dim=-1, keepdim=True) + self.eps)
+        out = hidden_states / RMS * self.gamma
+        return out
+    
+'''
+MLP:
+1. Use the SiLU activation function.
+2. Two encoder and one decoder. One of the encoder use SiLU activation.
+'''
 class LlamaMLP(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -72,51 +150,11 @@ class LlamaMLP(nn.Module):
     def forward(self, hidden_states):
         down_proj = self.down_proj(self.act_fn(self.gate_proj(hidden_states)) * self.up_proj(hidden_states))
         return down_proj
-
-
-class LlamaRotaryEmbedding(nn.Module):
-    def __init__(self, head_dim, base):
-        super().__init__()
-        self.head_dim = head_dim
-        self.base = base
-        
-        ids = torch.arange(0, self.head_dim // 2, dtype=torch.float)
-        theta = torch.pow(self.base, -2 * ids / self.head_dim)
-
-        self.register_buffer('theta', theta, persistent=False)
-
-    def forward(self, x):
-        batch_size, sequence_length, _ = x.shape
-        position = torch.arange(0, sequence_length, dtype=torch.float32).unsqueeze(-1)
-
-        embeddings = position * self.theta
-        sin_embeddings = torch.sin(embeddings)
-        cos_embeddings = torch.cos(embeddings)
-
-        sin_embeddings = sin_embeddings.repeat(1, 2).unsqueeze(0)
-        cos_embeddings = cos_embeddings.repeat(1, 2).unsqueeze(0)
-
-        sin_embeddings = sin_embeddings.repeat(batch_size, 1, 1)
-        cos_embeddings = cos_embeddings.repeat(batch_size, 1, 1)
-
-        return cos_embeddings, sin_embeddings
-
-class LlamaRMSNorm(nn.Module):
-    def __init__(self, embedding_dim, eps=1e-6):
-        super().__init__()
-        self.eps = eps
-        self.gamma = nn.Parameter(torch.ones(embedding_dim)) # learning parametre γ
     
-    def forward(self, hidden_states):
-        RMS = torch.sqrt(torch.mean(hidden_states**2, dim=-1, keepdim=True) + self.eps)
-        out = hidden_states / RMS * self.gamma
-        return out
-
-
 class LlamaDecoderLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.self_attn = LlamaSdpaAttention(config)
+        self.self_attn = LlamaAttention(config)
         self.mlp = LlamaMLP(config)
         self.input_layernorm = LlamaRMSNorm(config.embedding_dim)
         self.post_attention_layernorm = LlamaRMSNorm(config.embedding_dim)
@@ -133,20 +171,10 @@ class LlamaDecoderLayer(nn.Module):
         hidden_states = residual + hidden_states
         
         return hidden_states
-        
-#------------------------------------------------------------------------------------------------
-@dataclass
-class LLaMA3Config:
-    vocab_size: int = 500
-    embedding_dim: int = 2048
-    layer_num: int = 16 
-    head_dim: int = 256
-    att_heads: int = 8
-    kv_heads: int = 8
-    base: int = 10000
-    intermediate_size: int = 8192
-
-
+    
+'''
+Main Branch of LLAMA
+'''
 class LLaMA3(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -155,22 +183,40 @@ class LLaMA3(nn.Module):
         self.layers = nn.ModuleList([LlamaDecoderLayer(config) for _ in range(config.layer_num)])
         self.LlamaRotaryEmbedding = LlamaRotaryEmbedding(config.head_dim, config.base)
         self.norm = LlamaRMSNorm(config.embedding_dim)
+        self.lm_head = nn.Linear(config.embedding_dim, config.vocab_size, bias=False)
     
-    def forward(self, x):
-        hidden_states = self.embed_tokens(x)
+    def forward(self, ids, targets=None):
+        hidden_states = self.embed_tokens(ids)
         position_embeddings = self.LlamaRotaryEmbedding(hidden_states)
 
         for decoder_layer in self.layers[: self.num_hidden_layers]:
             hidden_states = decoder_layer(hidden_states, position_embeddings)
         
-        return hidden_states
+        hidden_states = self.norm(hidden_states)
+        logits = self.lm_head(hidden_states)
+
+        loss = None
+        if targets is not None:
+            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+        return logits, loss
 
 
-#------------------------------------------------------------------------------------------------
+#------------------------------------------------------------------------------
+# Main
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 config = LLaMA3Config()
-model = LLaMA3(config)
-print(model)
-inputs = torch.randint(0, 500, (2, 32))
-out = model(inputs)
-print(out.shape)
+
+print(torch.__version__)
+print(torch.cuda.is_available())  # 确保 PyTorch 识别到了 GPU
+print(torch.backends.cuda.matmul.allow_tf32)  # 检查是否允许 TF32 计算
+
+
+
+
+
+
+
+
+
+
