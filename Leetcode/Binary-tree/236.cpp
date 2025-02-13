@@ -2,8 +2,10 @@
 #include "../leetcode.h"
 
 TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
-    stack<TreeNode*> stk_p;
-    stack<TreeNode*> stk_q;
+    if (root == nullptr || root == p || root == q) return root;
 
-    
+    TreeNode* left = lowestCommonAncestor(root->left, p, q);
+    TreeNode* right = lowestCommonAncestor(root->right, p, q);
+    if (left && right) return root;
+    return left ? left : right;
 }
