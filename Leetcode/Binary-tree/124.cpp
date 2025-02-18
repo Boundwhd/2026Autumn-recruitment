@@ -2,7 +2,7 @@
 #include "../leetcode.h"
 
 class Solution {
-    int ans = INT_MIN;
+    int ans = INT32_MIN;
 public:
     int maxPathSum(TreeNode* root) {
         dfs(root);
