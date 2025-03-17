@@ -1,0 +1,4 @@
+/home/whd/2026Autumn-recruitment/HPC/cuda/gemm/build/CMakeFiles/gemm_main.dir
+/home/whd/2026Autumn-recruitment/HPC/cuda/gemm/build/CMakeFiles/clean_times.dir
+/home/whd/2026Autumn-recruitment/HPC/cuda/gemm/build/CMakeFiles/edit_cache.dir
+/home/whd/2026Autumn-recruitment/HPC/cuda/gemm/build/CMakeFiles/rebuild_cache.dir
