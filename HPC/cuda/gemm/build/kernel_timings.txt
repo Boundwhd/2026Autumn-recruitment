@@ -1,8 +1,0 @@
-GEMV kernel contrast!
-
-gemm_v1: 20.858 ms
-
-gemm_v2: 22.4951 ms
-
-gemm_v3: 13.4825 ms
-

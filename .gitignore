@@ -1,1 +1,3 @@
 .vscode/
+HPC/cuda/gemm/build
+HPC/cuda/gemv/build
