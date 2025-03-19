@@ -22,8 +22,9 @@ void __global__ gemv_v4(const float* A, const float* B, float* C, int M, int N) 
 }
 
 void gemv_version4(const float* A, const float* B, float* C, int M, int N) {
-    int block_size = 1024;
-    int grid_size = N;
+    int block_size = 128;
+    int row_per_block = block_size / 32;
+    int grid_size =  (N + row_per_block - 1) / row_per_block;
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
