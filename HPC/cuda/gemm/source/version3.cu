@@ -59,18 +59,17 @@ void gemm_version3(const float* A, const float* B, float* C, int M, int K, int N
     cudaEventCreate(&stop);
 
     cudaEventRecord(start);
-    for (int i = 0; i < COUNT; i++) {
-        gemm_v3<BM, BN, BK, TM><<<gridDim, blockDim>>>(A, B, C, M ,K ,N);
-    }
+    gemm_v3<BM, BN, BK, TM><<<gridDim, blockDim>>>(A, B, C, M ,K ,N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
+    float GFLOPS_S = 4 / milliseconds / (0.001f);
 
     std::ofstream outfile("kernel_timings.txt", std::ios::app); 
     if (outfile.is_open()) {
-        outfile << "gemm_v3: " << milliseconds << " ms" << std::endl << std::endl;
+        outfile << "gemm_v3: " << milliseconds << " ms" << std::endl << GFLOPS_S << "GFLOP/S" << std::endl << std::endl;
         outfile.close();
     } else {
         std::cerr << "Failed to open file for writing!" << std::endl;

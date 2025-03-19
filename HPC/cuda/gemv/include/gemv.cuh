@@ -3,7 +3,7 @@
 #include <cuda_runtime_api.h>
 #include <iostream>
 #include <fstream>
-#define COUNT 100
+#define COUNT 1
 
 
 void warm_up();

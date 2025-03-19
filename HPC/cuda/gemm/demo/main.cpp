@@ -73,5 +73,9 @@ int main() {
     gemm_version3(A_d, B_d, C_d, M, K, N);
     cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
     test(C_h, M, N);
+
+    gemm_version4(A_d, B_d, C_d, M, K, N);
+    cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+    test(C_h, M, N);
     return 0;
 }

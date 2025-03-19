@@ -19,6 +19,17 @@
     - 显著提高计算访存比，充分利用计算单元的算力。
 
 
-### Kernel 1: Naive Implementation
+A = [2048, 1024]
+B = [1024, 1024]
+C = [2048, 1024]
 
-TOTAL FLOP: $$2*N^3 \approx 137.25 \, GFLOP$$
+Total FLOP = 2048 * 1024 * 2 * 1024 = 4 GFLOPS
+
+### Kernel 1: Naive Implementation
+GFLOPs/s : 
+
+
+### Kernel 2: Shared Memory Cache-Blocking
+
+
+### Kernel 3: 1D Blocktiling for Calculating Multiple Results per Thread

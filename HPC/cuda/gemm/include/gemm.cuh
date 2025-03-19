@@ -3,7 +3,7 @@
 #include <cuda_runtime_api.h>
 #include <iostream>
 #include <fstream>
-#define COUNT 10
+#define DIV_CEIL(a, b) (((a) + (b) - 1) / (b)) 
 
 void warm_up();
 void gemm_cublas(const float* A, const float* B, float* C, int M, int K, int N);

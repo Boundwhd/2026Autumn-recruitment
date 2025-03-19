@@ -37,8 +37,8 @@ void __global__ gemm_v2(const float* A, const float* B, float* C, int M, int K, 
 
 
 void gemm_version2(const float* A, const float* B, float* C, int M, int K, int N) {
-    const int BLOCK_SIZE = 32;
-    int block_size = 1024;
+    const int BLOCK_SIZE = 16;
+    int block_size = 16 * 16;
     dim3 grid_size((N + BLOCK_SIZE - 1) / BLOCK_SIZE, (M + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
     cudaEvent_t start, stop;
@@ -46,18 +46,18 @@ void gemm_version2(const float* A, const float* B, float* C, int M, int K, int N
     cudaEventCreate(&stop);
 
     cudaEventRecord(start);
-    for (int i = 0; i < COUNT; i++) {
-        gemm_v2<BLOCK_SIZE><<<grid_size, block_size>>>(A, B, C, M, K, N);
-    }
+    gemm_v2<BLOCK_SIZE><<<grid_size, block_size>>>(A, B, C, M, K, N);
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
 
+    float GFLOPS_S = 4 / milliseconds / (0.001f);
+
     std::ofstream outfile("kernel_timings.txt", std::ios::app); 
     if (outfile.is_open()) {
-        outfile << "gemm_v2: " << milliseconds << " ms" << std::endl << std::endl;
+        outfile << "gemm_v2: " << milliseconds << " ms" << std::endl << GFLOPS_S << "GFLOP/S" << std::endl << std::endl;
         outfile.close();
     } else {
         std::cerr << "Failed to open file for writing!" << std::endl;
