@@ -4,7 +4,7 @@
 using namespace std;
 
 /**
- * GEMV VS Cublas
+ * GEMM VS Cublas
  * 向量大小：[2048, 1024]
  * 矩阵大小：[1024, 1024]
  * 输出大小：[2048, 1024]
@@ -54,13 +54,13 @@ int main() {
     
     std::ofstream outfile("kernel_timings.txt"); 
     if (outfile.is_open()) {
-        outfile << "GEMV kernel contrast!" << endl << endl;
+        outfile << "GEMM kernel contrast!" << endl << endl;
         outfile.close();
     }
 
-    // for (int i = 0; i < 1000; i++) {
-    //     warm_up();
-    // }
+    for (int i = 0; i < 1000; i++) {
+        warm_up();
+    }
 
     gemm_version1(A_d, B_d, C_d, M, K, N);
     cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
