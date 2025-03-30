@@ -2,8 +2,8 @@
 
 template<const int BLOCK_SIZE>
 void __global__ gemm_v2(const float* A, const float* B, float* C, int M, int K, int N) {
-    int crow = blockIdx.y;
-    int ccol = blockIdx.x;
+    int crow = blockIdx.x;
+    int ccol = blockIdx.y;
 
     int row_thread = threadIdx.x / BLOCK_SIZE;
     int col_thread = threadIdx.x % BLOCK_SIZE;
@@ -37,8 +37,8 @@ void __global__ gemm_v2(const float* A, const float* B, float* C, int M, int K, 
 
 
 void gemm_version2(const float* A, const float* B, float* C, int M, int K, int N) {
-    const int BLOCK_SIZE = 16;
-    int block_size = 16 * 16;
+    const int BLOCK_SIZE = 32;
+    int block_size = 32 * 32;
     dim3 grid_size((N + BLOCK_SIZE - 1) / BLOCK_SIZE, (M + BLOCK_SIZE - 1) / BLOCK_SIZE);
 
     cudaEvent_t start, stop;
@@ -53,7 +53,7 @@ void gemm_version2(const float* A, const float* B, float* C, int M, int K, int N
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
 
-    float GFLOPS_S = 4 / milliseconds / (0.001f);
+    float GFLOPS_S = (2.0 * K * N * M) / milliseconds / 1e6;
 
     std::ofstream outfile("kernel_timings.txt", std::ios::app); 
     if (outfile.is_open()) {

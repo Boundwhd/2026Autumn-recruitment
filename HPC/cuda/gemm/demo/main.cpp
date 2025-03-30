@@ -5,14 +5,14 @@ using namespace std;
 
 /**
  * GEMM VS Cublas
- * 向量大小：[2048, 1024]
- * 矩阵大小：[1024, 1024]
- * 输出大小：[2048, 1024]
+ * 向量大小：[2048, 2048]
+ * 矩阵大小：[2048, 2048]
+ * 输出大小：[2048, 2048]
 */
 
 void test(float *out, int M, int N){
     for (int i = 0; i < M * N; i++) {
-        if (out[i] != 1024) {
+        if (out[i] != 4096) {
             cout << "Error!" << endl;
             return;
         }
@@ -22,9 +22,9 @@ void test(float *out, int M, int N){
 }
 
 int main() {
-    const size_t M = 2048;
-    const size_t K = 1024;
-    const size_t N = 1024;
+    const size_t M = 4096;
+    const size_t K = 4096;
+    const size_t N = 4096;
 
     float* A_h = (float*)malloc(M * K * sizeof(float));
     float* B_h = (float*)malloc(K * N * sizeof(float));
@@ -66,16 +66,20 @@ int main() {
     cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
     test(C_h, M, N);
 
+    gemm_version1pp(A_d, B_d, C_d, M, K, N);
+    cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+    test(C_h, M, N);
+
     gemm_version2(A_d, B_d, C_d, M, K, N);
     cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
     test(C_h, M, N);
 
-    gemm_version3(A_d, B_d, C_d, M, K, N);
-    cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
-    test(C_h, M, N);
+    // gemm_version3(A_d, B_d, C_d, M, K, N);
+    // cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+    // test(C_h, M, N);
 
-    gemm_version4(A_d, B_d, C_d, M, K, N);
-    cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
-    test(C_h, M, N);
+    // gemm_version4(A_d, B_d, C_d, M, K, N);
+    // cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+    // test(C_h, M, N);
     return 0;
 }
