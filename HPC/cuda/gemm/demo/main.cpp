@@ -5,9 +5,9 @@ using namespace std;
 
 /**
  * GEMM VS Cublas
- * 向量大小：[2048, 2048]
- * 矩阵大小：[2048, 2048]
- * 输出大小：[2048, 2048]
+ * 向量大小：[4096, 4096]
+ * 矩阵大小：[4096, 4096]
+ * 输出大小：[4096, 4096]
 */
 
 void test(float *out, int M, int N){
@@ -74,12 +74,12 @@ int main() {
     cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
     test(C_h, M, N);
 
-    // gemm_version3(A_d, B_d, C_d, M, K, N);
-    // cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
-    // test(C_h, M, N);
+    gemm_version3(A_d, B_d, C_d, M, K, N);
+    cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+    test(C_h, M, N);
 
-    // gemm_version4(A_d, B_d, C_d, M, K, N);
-    // cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
-    // test(C_h, M, N);
+    gemm_version4(A_d, B_d, C_d, M, K, N);
+    cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+    test(C_h, M, N);
     return 0;
 }

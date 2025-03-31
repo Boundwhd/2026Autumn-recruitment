@@ -6,17 +6,17 @@ void __global__ gemm_v4(const float* A, const float* B, float* C, int M, int K, 
     const uint cCol = blockIdx.x;
 
     const uint totalResultsBlocktile = BM * BN;
-    const uint numThreadsBlocktile = totalResultsBlocktile / (TM * TM);
+    const uint numThreadsBlocktile = totalResultsBlocktile / (TM * TN);
 
     const int threadCol = threadIdx.x % (BN / TN);
-    const int threadRow = threadIdx.x % (BN / TN);
+    const int threadRow = threadIdx.x / (BN / TN);
 
     __shared__ float As[BM * BK];
     __shared__ float Bs[BK * BN];
 
     A += cRow * K * BM;
     B += cCol * BK;
-    C += cRow * K * BN + cCol * BK;
+    C += cRow * K * BM + cCol * BN;
 
     const uint innerRowA = threadIdx.x / BK;
     const uint innerColA = threadIdx.x % BK;
@@ -65,7 +65,7 @@ void __global__ gemm_v4(const float* A, const float* B, float* C, int M, int K, 
 
     for (int i = 0; i < TM; i++) {
         for (int j = 0; j < TN; j++) {
-            C[(threadRow * TM + i) * N + threadCol * TM + j] = threadResults[i * TN + j];
+            C[(threadRow * TM + i) * N + threadCol * TN + j] = threadResults[i * TN + j];
         }
     }
 }
@@ -91,7 +91,7 @@ void gemm_version4(const float* A, const float* B, float* C, int M, int K, int N
 
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    float GFLOPS_S = 4 / milliseconds / (0.001f);
+    float GFLOPS_S = (2.0 * K * N * M) / milliseconds / 1e6;
 
     std::ofstream outfile("kernel_timings.txt", std::ios::app); 
     if (outfile.is_open()) {
