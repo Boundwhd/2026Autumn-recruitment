@@ -62,6 +62,11 @@ int main() {
         warm_up();
     }
 
+    gemm_cublas(A_d, B_d, C_d, M, K, N);
+    cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
+    test(C_h, M, N);
+    cudaMemset(C_d, 0, M * N * sizeof(float));
+
     gemm_version1(A_d, B_d, C_d, M, K, N);
     cudaMemcpy(C_h, C_d, M * N * sizeof(float), cudaMemcpyDeviceToHost);
     test(C_h, M, N);

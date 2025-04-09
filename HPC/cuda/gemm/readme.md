@@ -27,4 +27,3 @@ GPU 上有一个片上的存储区域，称为共享内存，每一个 SM 上都
 每个线程开辟三个寄存器，第一个存放 A 中的 TM 个元素，第二个存放 B 中的 TN 个元素，结果寄存器中存放 A 和 B 中元素交错相乘的所有结果（结果寄存器）。
 <img src="/home/whd/2026Autumn-recruitment/HPC/cuda/gemm/image/kernel5.png" width="100%">
 然而，在我的实验参数下， A 矩阵读取数据时会出现严重的 bank confict。B 矩阵出现4-way bank conflict。
-
